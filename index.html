@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camera Checker — Dahua / Hikvision IP camera audit</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#111;display:flex;flex-direction:column;align-items:center;padding:0;font-family:'Segoe UI',sans-serif;color:#ccc;min-height:100vh;}
+
+  /* Top bar */
+  .topbar{width:100%;background:#1e1e2e;border-bottom:1px solid #333;display:flex;align-items:center;justify-content:space-between;padding:10px 24px;}
+  .topbar-logo{display:flex;align-items:center;gap:10px;}
+  .topbar-logo img{height:32px;width:auto;}
+  .topbar-logo span{font-size:12px;color:#666;font-family:monospace;}
+  .lang-switcher{display:flex;gap:6px;}
+  .lang-btn{background:none;border:1.5px solid #444;border-radius:4px;cursor:pointer;padding:3px 6px;display:flex;align-items:center;gap:5px;font-size:11px;color:#888;transition:border-color 0.15s,color 0.15s;}
+  .lang-btn:hover{border-color:#777;color:#ccc;}
+  .lang-btn.active{border-color:#1D9E75;color:#ccc;}
+  .lang-btn img{width:20px;height:14px;object-fit:cover;border-radius:2px;}
+
+  /* Main content */
+  .main{width:100%;max-width:760px;padding:32px 20px;}
+  .header{text-align:center;margin-bottom:32px;}
+  .header h1{font-size:22px;color:#e0e0e0;font-weight:600;margin-bottom:8px;}
+  .header p{font-size:13px;color:#888;line-height:1.6;}
+  .header .badge{display:inline-block;background:#2a2a3e;border:1px solid #444;border-radius:4px;padding:2px 8px;font-size:11px;color:#aaa;font-family:monospace;margin-top:6px;}
+
+  .preview{margin:0 auto 24px;text-align:center;}
+  .preview img{max-width:100%;border-radius:8px;border:1px solid #333;}
+
+  .card{background:#1e1e2e;border:1.5px solid #555;border-radius:8px;padding:24px;margin-bottom:20px;}
+  .card-title{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #333;}
+
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:5px;font-size:13px;font-weight:500;text-decoration:none;border:none;cursor:pointer;transition:opacity 0.15s;}
+  .btn:hover{opacity:0.82;}
+  .btn-primary{background:#2980b9;color:#fff;}
+  .btn-secondary{background:#2a2a3e;border:1px solid #555;color:#ccc;}
+  .btn-demo{background:#1D9E75;color:#fff;}
+  .btn svg{flex-shrink:0;}
+
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .info-item label{display:block;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;}
+  .info-item span{font-size:12px;color:#bbb;font-family:monospace;}
+
+  .feature-list{list-style:none;padding:0;margin:0;}
+  .feature-list li{padding:6px 0 6px 22px;position:relative;font-size:13px;color:#bbb;line-height:1.5;border-bottom:1px solid #2a2a3e;}
+  .feature-list li:last-child{border-bottom:none;}
+  .feature-list li::before{content:'›';position:absolute;left:6px;top:6px;color:#1D9E75;font-weight:bold;}
+
+  .table{width:100%;border-collapse:collapse;font-size:12px;}
+  .table th{text-align:left;padding:5px 8px;color:#666;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #333;}
+  .table td{padding:5px 8px;color:#bbb;border-bottom:1px solid #2a2a3e;font-family:monospace;}
+  .table tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block;background:#252535;border:1px solid #444;border-radius:3px;padding:1px 6px;font-size:10px;color:#aaa;}
+  .tag-blue{border-color:#185FA5;color:#85B7EB;background:#0a1e35;}
+  .tag-green{border-color:#0F6E56;color:#9FE1CB;background:#0a2e22;}
+  .tag-amber{border-color:#BA7517;color:#EF9F27;background:#2a1e08;}
+  .tag-red{border-color:#A52A2A;color:#F08080;background:#2e1010;}
+  .tag-gray{border-color:#555;color:#999;background:#252535;}
+
+  .footer{text-align:center;color:#444;font-size:11px;margin-top:24px;font-family:monospace;}
+  .footer a{color:#555;text-decoration:none;}
+  .footer a:hover{color:#888;}
+
+  .dl-table{width:100%;border-collapse:collapse;margin-bottom:14px;}
+  .dl-table th{text-align:left;padding:5px 8px;color:#555;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #2a2a3e;}
+  .dl-table td{padding:7px 8px;border-bottom:1px solid #222;vertical-align:middle;}
+  .dl-table tr:last-child td{border-bottom:none;}
+  .dl-os{display:flex;align-items:center;gap:7px;font-size:13px;color:#ccc;}
+  .dl-os svg{flex-shrink:0;opacity:0.7;}
+  .dl-arch{font-size:11px;color:#666;font-family:monospace;}
+  .dl-note{font-size:11px;color:#666;}
+  .btn-dl{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;font-size:12px;font-weight:500;text-decoration:none;background:#1a2a3a;border:1px solid #2980b9;color:#85B7EB;transition:opacity 0.15s;white-space:nowrap;}
+  .btn-dl:hover{opacity:0.78;}
+
+  .note{background:#0a1e35;border:1px solid #185FA5;border-radius:6px;padding:12px 14px;font-size:12px;color:#85B7EB;line-height:1.6;margin-top:4px;}
+  .note strong{color:#a8d4ff;}
+  .note code{background:#06192c;border-radius:3px;padding:1px 5px;font-family:monospace;font-size:11px;color:#c8e4ff;}
+
+  @media(max-width:520px){
+    .info-grid{grid-template-columns:1fr;}
+    .btn-row{flex-direction:column;}
+    .btn{justify-content:center;}
+    .topbar{padding:10px 16px;}
+    .dl-arch,.dl-note{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <img src="img/orimslav_logo.png" alt="Orimslav logo">
+    <span>camera_checker</span>
+  </div>
+  <div class="lang-switcher">
+    <button class="lang-btn" id="btn-sk" onclick="setLang('sk')">
+      <img src="img/flag_sk.svg" alt="SK"><span>SK</span>
+    </button>
+    <button class="lang-btn" id="btn-en" onclick="setLang('en')">
+      <img src="img/flag_en.svg" alt="EN"><span>EN</span>
+    </button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="header">
+    <h1 data-sk="Camera Checker"
+        data-en="Camera Checker">Camera Checker</h1>
+    <p data-sk="Desktopová aplikácia na audit Dahua a Hikvision IP kamier<br>paralelná kontrola NTP, DST a časovej odchýlky"
+       data-en="Desktop application for auditing Dahua and Hikvision IP cameras<br>parallel check of NTP, DST and clock drift">
+      Desktopová aplikácia na audit Dahua a Hikvision IP kamier<br>paralelná kontrola NTP, DST a časovej odchýlky
+    </p>
+    <span class="badge">Python 3.10+ · PySide6 6.8 · requests · openpyxl</span>
+  </div>
+
+  <div class="preview">
+    <img src="img/camera_checker.gif" alt="Camera Checker demo">
+  </div>
+
+  <!-- Download -->
+  <div class="card">
+    <div class="card-title" data-sk="Stiahnutie" data-en="Download">Stiahnutie</div>
+
+    <table class="dl-table">
+      <thead>
+        <tr>
+          <th data-sk="Platforma" data-en="Platform">Platforma</th>
+          <th class="dl-arch" data-sk="Arch" data-en="Arch">Arch</th>
+          <th data-sk="Súbor" data-en="File">Súbor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="dl-os">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="#85B7EB"><path d="M0 2.5A1.5 1.5 0 011.5 1h13A1.5 1.5 0 0116 2.5v8a1.5 1.5 0 01-1.5 1.5H9v1h1a.5.5 0 010 1H6a.5.5 0 010-1h1v-1H1.5A1.5 1.5 0 010 10.5v-8zm1.5-.5a.5.5 0 00-.5.5v8a.5.5 0 00.5.5h13a.5.5 0 00.5-.5v-8a.5.5 0 00-.5-.5h-13z"/></svg>
+            Windows
+          </span></td>
+          <td class="dl-arch">x86-64</td>
+          <td><span class="dl-note">CameraChecker.exe</span></td>
+          <td><a class="btn-dl" href="https://github.com/Orimslav/camera_checker/releases/latest/download/CameraChecker.exe">
+            ↓ <span data-sk="Stiahnuť" data-en="Download">Stiahnuť</span>
+          </a></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="btn-row" style="margin-top:14px;">
+      <a class="btn btn-secondary" href="https://github.com/Orimslav/camera_checker/releases" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M7.47 10.78a.75.75 0 001.06 0l3.75-3.75a.75.75 0 00-1.06-1.06L8.75 8.44V2a.75.75 0 00-1.5 0v6.44L4.78 5.97a.75.75 0 00-1.06 1.06l3.75 3.75zM2 12.75a.75.75 0 000 1.5h12a.75.75 0 000-1.5H2z"/></svg>
+        <span data-sk="Všetky verzie (GitHub Releases)" data-en="All versions (GitHub Releases)">Všetky verzie (GitHub Releases)</span>
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/Orimslav/camera_checker/archive/refs/heads/main.zip">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.75 1.5H3.5A1.5 1.5 0 002 3v10a1.5 1.5 0 001.5 1.5h9A1.5 1.5 0 0014 13V5.75L9.75 1.5zm0 1.5L12.5 5.75H9.75V3zM3.5 13V3h4.75v3.5A.75.75 0 009 7.25h3.5L12.5 13H3.5z"/></svg>
+        <span data-sk="Zdrojový kód (.zip)" data-en="Source code (.zip)">Zdrojový kód (.zip)</span>
+      </a>
+    </div>
+
+    <div class="note" style="margin-top:14px;">
+      <strong data-sk="Demo režim:" data-en="Demo mode:">Demo režim:</strong>
+      <span data-sk=" spusti aplikáciu s prepínačom"
+            data-en=" launch the app with the flag">
+        spusti aplikáciu s prepínačom
+      </span>
+      <code>--demo</code>
+      <span data-sk=" — UI sa otvorí v angličtine, dáta sú syntetické (RFC 5737 rozsah 192.0.2.0/24), žiadne sieťové volania."
+            data-en=" — the UI opens in English, data is synthetic (RFC 5737 range 192.0.2.0/24), no network calls.">
+        — UI sa otvorí v angličtine, dáta sú syntetické (RFC 5737 rozsah 192.0.2.0/24), žiadne sieťové volania.
+      </span>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="card">
+    <div class="card-title" data-sk="Funkcie" data-en="Features">Funkcie</div>
+    <ul class="feature-list">
+      <li data-sk="Import zoznamu kamier z CSV súboru"
+          data-en="Import camera list from a CSV file">Import zoznamu kamier z CSV súboru</li>
+      <li data-sk="Paralelná kontrola NTP, DST a časovej odchýlky na všetkých kamerách (predvolene 10 vlákien)"
+          data-en="Parallel check of NTP, DST and clock drift across all cameras (10 workers by default)">Paralelná kontrola NTP, DST a časovej odchýlky na všetkých kamerách (predvolene 10 vlákien)</li>
+      <li data-sk="Filtrovanie výsledkov podľa stavu cez klikateľné štatistické karty"
+          data-en="Filter results by status via clickable stat cards">Filtrovanie výsledkov podľa stavu cez klikateľné štatistické karty</li>
+      <li data-sk="Opätovná kontrola jednej kamery po oprave"
+          data-en="Recheck a single camera after fixing it">Opätovná kontrola jednej kamery po oprave</li>
+      <li data-sk="Export výsledkov do CSV alebo Excelu"
+          data-en="Export results to CSV or Excel">Export výsledkov do CSV alebo Excelu</li>
+      <li data-sk="Otvorenie web rozhrania kamery priamo z aplikácie"
+          data-en="Open the camera's web UI directly from the app">Otvorenie web rozhrania kamery priamo z aplikácie</li>
+      <li data-sk="SK / EN rozhranie · tmavá / svetlá téma"
+          data-en="SK / EN UI · dark / light theme">SK / EN rozhranie · tmavá / svetlá téma</li>
+    </ul>
+  </div>
+
+  <!-- Status buckets -->
+  <div class="card">
+    <div class="card-title" data-sk="Stavy kamier" data-en="Camera statuses">Stavy kamier</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th data-sk="Stav" data-en="Status">Stav</th>
+          <th data-sk="Význam" data-en="Meaning">Význam</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag tag-green">OK</span></td>
+          <td data-sk="Prihlásenie OK, žiadne NTP/DST problémy, časová odchýlka v tolerancii"
+              data-en="Auth OK, no NTP/DST issues, time drift within tolerance">Prihlásenie OK, žiadne NTP/DST problémy, časová odchýlka v tolerancii</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-amber">Problem</span></td>
+          <td data-sk="Prihlásenie OK, ale NTP/DST nezhoda alebo odchýlka nad 60s"
+              data-en="Auth OK but NTP/DST mismatch or drift over 60s">Prihlásenie OK, ale NTP/DST nezhoda alebo odchýlka nad 60s</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-red">Auth failed</span></td>
+          <td data-sk="Nesprávne meno/heslo, alebo kamera nedostupná"
+              data-en="Wrong credentials, or camera unreachable">Nesprávne meno/heslo, alebo kamera nedostupná</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-gray">Skipped</span></td>
+          <td data-sk="Switch, server, alebo manuálne preskočená IP (config.SKIP_IPS)"
+              data-en="Switch, server, or manually skipped IP (config.SKIP_IPS)">Switch, server, alebo manuálne preskočená IP (config.SKIP_IPS)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- CSV format -->
+  <div class="card">
+    <div class="card-title" data-sk="Formát CSV" data-en="CSV format">Formát CSV</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th data-sk="Stĺpec" data-en="Column">Stĺpec</th>
+          <th data-sk="Použitie" data-en="Used for">Použitie</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Web Site</td>
+          <td data-sk="URL kamery — IP sa vytiahne regexom"
+              data-en="Camera URL — IP is extracted by regex">URL kamery — IP sa vytiahne regexom</td>
+        </tr>
+        <tr>
+          <td>Login Name / Username</td>
+          <td data-sk="HTTP auth meno"
+              data-en="HTTP auth username">HTTP auth meno</td>
+        </tr>
+        <tr>
+          <td>Password</td>
+          <td data-sk="HTTP auth heslo"
+              data-en="HTTP auth password">HTTP auth heslo</td>
+        </tr>
+        <tr>
+          <td>Account</td>
+          <td data-sk="Zobrazený názov kamery"
+              data-en="Friendly camera name">Zobrazený názov kamery</td>
+        </tr>
+        <tr>
+          <td>Comments</td>
+          <td data-sk="Voliteľné — model (IPC-…, DS-…) sa parsuje odtiaľto"
+              data-en="Optional — model (IPC-…, DS-…) is parsed from here">Voliteľné — model (IPC-…, DS-…) sa parsuje odtiaľto</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- What gets checked -->
+  <div class="card">
+    <div class="card-title" data-sk="Čo sa kontroluje" data-en="What gets checked">Čo sa kontroluje</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th data-sk="Kontrola" data-en="Check">Kontrola</th>
+          <th data-sk="Poznámka" data-en="Notes">Poznámka</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-sk="Autentifikácia" data-en="Authentication">Autentifikácia</td>
+          <td><span class="tag tag-blue">Dahua</span> Digest → Basic · <span class="tag tag-blue">Hikvision</span> ISAPI</td>
+        </tr>
+        <tr>
+          <td data-sk="Aktuálny čas" data-en="Current time">Aktuálny čas</td>
+          <td data-sk="Hodiny kamery vs. čas hostu"
+              data-en="Camera clock vs. host time">Hodiny kamery vs. čas hostu</td>
+        </tr>
+        <tr>
+          <td data-sk="Časová odchýlka" data-en="Clock drift">Časová odchýlka</td>
+          <td><span class="tag tag-amber">|drift| &gt; 60s</span> <span data-sk="= problém" data-en="= problem">= problém</span></td>
+        </tr>
+        <tr>
+          <td data-sk="NTP nastavenia" data-en="NTP settings">NTP nastavenia</td>
+          <td data-sk="Adresa, port, enable — vs. config.py EXPECTED_NTP_*"
+              data-en="Address, port, enable — vs. config.py EXPECTED_NTP_*">Adresa, port, enable — vs. config.py EXPECTED_NTP_*</td>
+        </tr>
+        <tr>
+          <td data-sk="DST nastavenia" data-en="DST settings">DST nastavenia</td>
+          <td data-sk="EU rozvrh (mesiac/týždeň/deň/hodina) — vs. config.py EXPECTED_DST"
+              data-en="EU schedule (month/week/day/hour) — vs. config.py EXPECTED_DST">EU rozvrh (mesiac/týždeň/deň/hodina) — vs. config.py EXPECTED_DST</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <a href="https://github.com/Orimslav/camera_checker" target="_blank">github.com/Orimslav/camera_checker</a>
+  </div>
+</div>
+
+<script>
+function setLang(lang){
+  localStorage.setItem('lang',lang);
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-sk][data-en]').forEach(el=>{
+    const val=el.getAttribute('data-'+lang);
+    if(val!==null) el.innerHTML=val;
+  });
+  document.getElementById('btn-sk').classList.toggle('active',lang==='sk');
+  document.getElementById('btn-en').classList.toggle('active',lang==='en');
+}
+setLang(localStorage.getItem('lang')||'sk');
+</script>
+</body>
+</html>
