@@ -18,6 +18,7 @@ them straight from the UI.
 - Recheck a single camera after fixing it
 - Export results to CSV or Excel
 - Open the camera's web UI directly from the app
+- **Edit reference values (NTP servers, DST schedule, drift tolerance) directly from the UI** — persisted between sessions, fall back to `config.py` defaults
 - Built-in demo mode with synthetic data on `192.0.2.0/24` (RFC 5737) — no real cameras contacted
 - SK / EN UI, dark / light theme
 
@@ -81,19 +82,25 @@ Rows missing IP, username or password are silently skipped.
 | **Authentication** | HTTP Digest then HTTP Basic (Dahua) · ISAPI auth (Hikvision) |
 | **Current time** | Reads camera clock, compares to host time |
 | **Clock drift** | Flagged as problem when `|drift| > 60s` |
-| **NTP settings** | Server address, port, enabled flag — compared to expected values in `config.py` |
-| **DST settings** | Start/end month, week, day, hour — compared to EU schedule in `config.py` |
+| **NTP settings** | Server address, port, enabled flag — compared to reference values (editable in the UI Settings dialog) |
+| **DST settings** | Start/end month, week, day, hour — compared to EU schedule (editable in the UI Settings dialog) |
 
 Switches, servers and manually skipped IPs (`config.SKIP_IPS`) appear in the table as
 **skipped** so you keep visibility without burning network calls on them.
 
 ### Configuration
 
-Site-specific policy lives in `dahuawin/config.py`:
+**Reference values for the checks** can be edited from the **Settings** button in the toolbar:
 
-- `EXPECTED_NTP_ADDRESSES`, `EXPECTED_NTP_PORT`
-- `EXPECTED_DST` — full EU DST schedule
-- `MAX_TIME_DIFF_SECONDS` — drift tolerance (default 60s)
+- Allowed NTP server addresses (whitelist) + port + enabled flag
+- Full DST schedule (start / end — month, week, day, hour) + DST enabled flag
+- Max. time drift tolerance in seconds
+
+These values are persisted via `QSettings` (Windows registry under `HKCU\Software\OFZ\Camera Checker`) and fall back to the defaults in `config.py` when nothing has been set yet. Use **Restore defaults** in the dialog to clear the override.
+
+Other site-specific policy still lives in `dahuawin/config.py`:
+
+- `EXPECTED_NTP_*`, `EXPECTED_DST`, `MAX_TIME_DIFF_SECONDS` — **defaults** used when the UI override is empty
 - `SLOW_IPS` — cameras that need the longer 20s timeout
 - `SKIP_IPS` — manually excluded cameras
 - `MAX_WORKERS` — parallel check concurrency (default 10)
@@ -117,6 +124,7 @@ a umožní ich opraviť priamo z aplikácie.
 - Opätovná kontrola jednej kamery po oprave
 - Export výsledkov do CSV alebo Excelu
 - Otvorenie web rozhrania kamery priamo z aplikácie
+- **Úprava referenčných hodnôt (NTP servery, DST rozvrh, tolerancia odchýlky) priamo z UI** — pamätajú sa medzi spusteniami, defaulty z `config.py`
 - Vstavaný demo režim so syntetickými dátami na `192.0.2.0/24` (RFC 5737) — žiadne skutočné kamery
 - SK / EN rozhranie, tmavá / svetlá téma
 
@@ -180,19 +188,25 @@ Riadky bez IP, mena alebo hesla sa ticho preskočia.
 | **Autentifikácia** | HTTP Digest potom HTTP Basic (Dahua) · ISAPI auth (Hikvision) |
 | **Aktuálny čas** | Načíta hodiny kamery, porovná s časom hostu |
 | **Časová odchýlka** | Označená ako problém keď `|odchýlka| > 60s` |
-| **NTP nastavenia** | Adresa servera, port, enable flag — porovnané s očakávanými hodnotami v `config.py` |
-| **DST nastavenia** | Začiatok/koniec — mesiac, týždeň, deň, hodina — porovnané s EU rozvrhom v `config.py` |
+| **NTP nastavenia** | Adresa servera, port, enable flag — porovnané s referenčnými hodnotami (editovateľné v dialógu Nastavenia) |
+| **DST nastavenia** | Začiatok/koniec — mesiac, týždeň, deň, hodina — porovnané s EU rozvrhom (editovateľné v dialógu Nastavenia) |
 
 Switche, servery a manuálne preskočené IP (`config.SKIP_IPS`) sa zobrazia v tabuľke ako
 **preskočené** — máš o nich prehľad ale neminieš na ne sieťové volanie.
 
 ### Konfigurácia
 
-Site-špecifická konfigurácia je v `dahuawin/config.py`:
+**Referenčné hodnoty pre kontrolu** sa upravujú cez tlačidlo **Nastavenia** v toolbare:
 
-- `EXPECTED_NTP_ADDRESSES`, `EXPECTED_NTP_PORT`
-- `EXPECTED_DST` — kompletný EU DST rozvrh
-- `MAX_TIME_DIFF_SECONDS` — tolerancia časovej odchýlky (predvolene 60s)
+- Povolené NTP adresy (whitelist) + port + enable flag
+- Kompletný DST rozvrh (začiatok / koniec — mesiac, týždeň, deň, hodina) + DST enable
+- Max. tolerancia časovej odchýlky v sekundách
+
+Hodnoty sa pamätajú cez `QSettings` (Windows registry pod `HKCU\Software\OFZ\Camera Checker`) a ak nie sú nastavené, použijú sa defaulty z `config.py`. **Obnoviť pôvodné** v dialógu vyčistí override.
+
+Ostatná site-špecifická konfigurácia je v `dahuawin/config.py`:
+
+- `EXPECTED_NTP_*`, `EXPECTED_DST`, `MAX_TIME_DIFF_SECONDS` — **defaulty** ktoré platia keď UI override nie je nastavený
 - `SLOW_IPS` — kamery ktoré potrebujú dlhší 20s timeout
 - `SKIP_IPS` — manuálne vylúčené kamery
 - `MAX_WORKERS` — počet paralelných kontrol (predvolene 10)

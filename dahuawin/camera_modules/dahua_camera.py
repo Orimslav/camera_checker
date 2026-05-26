@@ -5,7 +5,7 @@ import urllib3
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
 from dahuawin.camera_modules.base_camera import BaseCamera
-import dahuawin.config as config
+from dahuawin import settings_store
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -97,20 +97,24 @@ class DahuaCamera(BaseCamera):
         return False
 
     def _check_ntp_settings(self):
+        expected_addresses = settings_store.expected_ntp_addresses()
+        expected_port = settings_store.expected_ntp_port()
+        expected_enable = settings_store.expected_ntp_enable()
+
         actual_addr = self.ntp_settings.get("Address", "")
-        if actual_addr.lower() not in [addr.lower() for addr in config.EXPECTED_NTP_ADDRESSES]:
+        if actual_addr.lower() not in [addr.lower() for addr in expected_addresses]:
             self.ntp_issues.append(
-                f"NTP.Address: '{actual_addr}' (ocakava sa '{config.EXPECTED_NTP_ADDRESSES[0]}')"
+                f"NTP.Address: '{actual_addr}' (ocakava sa '{expected_addresses[0]}')"
             )
 
         actual_port = self.ntp_settings.get("Port", "")
-        if actual_port != config.EXPECTED_NTP_PORT:
-            self.ntp_issues.append(f"NTP.Port: '{actual_port}' (ocakava sa '{config.EXPECTED_NTP_PORT}')")
+        if actual_port != expected_port:
+            self.ntp_issues.append(f"NTP.Port: '{actual_port}' (ocakava sa '{expected_port}')")
 
         actual_enable = self.ntp_settings.get("Enable", "")
         actual_bool = actual_enable.lower() in ["1", "true"]
-        if actual_bool != config.EXPECTED_NTP_ENABLE:
-            expected = "enabled (true/1)" if config.EXPECTED_NTP_ENABLE else "disabled (false/0)"
+        if actual_bool != expected_enable:
+            expected = "enabled (true/1)" if expected_enable else "disabled (false/0)"
             self.ntp_issues.append(f"NTP.Enable: '{actual_enable}' (ocakava sa {expected})")
 
     def get_dst_settings(self) -> bool:
@@ -135,7 +139,7 @@ class DahuaCamera(BaseCamera):
         return False
 
     def _check_dst_settings(self):
-        for key, expected in config.EXPECTED_DST.items():
+        for key, expected in settings_store.expected_dst().items():
             actual = self.dst_settings.get(key, "")
             if key == "DSTEnable":
                 actual_bool = actual.lower() in ["1", "true"]
@@ -146,9 +150,13 @@ class DahuaCamera(BaseCamera):
                 if (actual.lstrip("0") or "0") != (expected.lstrip("0") or "0"):
                     self.dst_issues.append(f"DST.{key}: '{actual}' (ocakava sa '{expected}')")
 
-    def set_ntp_settings(self, address: str = None, port: str = "123", enable: bool = True) -> bool:
+    def set_ntp_settings(self, address: str = None, port: str = None, enable: bool = None) -> bool:
         if address is None:
-            address = config.EXPECTED_NTP_ADDRESSES[0]
+            address = settings_store.expected_ntp_addresses()[0]
+        if port is None:
+            port = settings_store.expected_ntp_port()
+        if enable is None:
+            enable = settings_store.expected_ntp_enable()
 
         config_data = f"""table.NTP.Enable={str(enable).lower()}
 table.NTP.Address={address}
@@ -169,7 +177,7 @@ table.NTP.Port={port}
             return False
 
     def set_dst_settings(self) -> bool:
-        config_data = "".join(f"table.Locales.{key}={value}\n" for key, value in config.EXPECTED_DST.items())
+        config_data = "".join(f"table.Locales.{key}={value}\n" for key, value in settings_store.expected_dst().items())
         try:
             response = requests.post(
                 f"http://{self.ip}/cgi-bin/configManager.cgi?action=setConfig&Locales",

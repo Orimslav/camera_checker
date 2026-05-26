@@ -31,15 +31,18 @@ Three layers, top-down:
    - `ResultExporter` writes CSV/Excel using its own internal `TRANSLATIONS` table (separate from `dahuawin/translations.py` — column headers live here).
 
 3. **`dahuawin/camera_modules/`** — vendor abstraction:
-   - `BaseCamera` (ABC) defines the contract: `authenticate`, `get_current_time`, `get_ntp_settings`, `get_dst_settings`, `set_*`, `sync_time_now`. `check_all` is the template method that calls auth → time → ntp → dst, concatenates `ntp_issues + dst_issues`, and prepends a time-drift issue when `|time_diff| > 60s`. The hardcoded 60 here intentionally mirrors `config.MAX_TIME_DIFF_SECONDS`.
+   - `BaseCamera` (ABC) defines the contract: `authenticate`, `get_current_time`, `get_ntp_settings`, `get_dst_settings`, `set_*`, `sync_time_now`. `check_all` is the template method that calls auth → time → ntp → dst, concatenates `ntp_issues + dst_issues`, and prepends a time-drift issue when `|time_diff| > settings_store.max_time_diff_seconds()`.
    - `DahuaCamera` talks to the Dahua CGI API (`/cgi-bin/magicBox.cgi`, `/cgi-bin/global.cgi`, etc.) and tries HTTP Digest then HTTP Basic auth.
    - `HikvisionCamera` talks to the Hikvision ISAPI XML endpoints.
    - `DeviceDetector.detect_vendor` resolves model + name to one of `Hikvision` / `Switch` / `Server` / `Dahua` / `Unknown` using keyword/prefix lists from `config.py`. Switches and servers get a `DahuaCamera` instance with `skipped=True` set so `check_all` short-circuits — this is intentional to keep them visible in the table as "skipped" rather than dropped.
 
-`config.py` centralizes everything site-specific: expected NTP servers (`192.168.10.5`, `cams.ofz.sk`), DST schedule (EU rules), the `SLOW_IPS` list that bumps timeout from 10s to 20s, `SKIP_IPS` for manual skips, `MAX_WORKERS`, and the vendor-detection keyword lists. Change site policy here, not in the camera modules.
+4. **`dahuawin/settings_store.py` + `dahuawin/settings_dialog.py`** — runtime override layer for the reference values. `settings_store` wraps `QSettings` (stored under `HKCU\Software\OFZ\Camera Checker` on Windows) and exposes getters `expected_ntp_addresses()`, `expected_ntp_port()`, `expected_ntp_enable()`, `expected_dst()`, `max_time_diff_seconds()` — with fallback to the matching `config.EXPECTED_*` constants when QSettings has no value yet. Vendor modules and `CameraChecker` always read through `settings_store`, never directly from `config`. `settings_dialog.SettingsDialog` is the modal UI (opened from the toolbar) that edits these values and persists them via `settings_store.save_settings(...)`. `reset_to_defaults()` removes the `expected` QSettings group so `config.py` defaults apply again.
+
+`config.py` centralizes everything site-specific: **default** expected NTP servers (`192.168.10.5`, `cams.ofz.sk`), default DST schedule (EU rules), default `MAX_TIME_DIFF_SECONDS`, the `SLOW_IPS` list that bumps timeout from 10s to 20s, `SKIP_IPS` for manual skips, `MAX_WORKERS`, and the vendor-detection keyword lists. The NTP / DST / drift tolerance values here act as defaults — the actual values used at runtime come from `settings_store`. Change baked-in site policy here; change runtime values via the UI Settings dialog.
 
 ## Conventions worth knowing
 
 - Result dicts (the rows passed around between checker, UI, exporter) are loosely typed `Dict` with stable keys defined by `BaseCamera.to_dict`. When adding a field, update `to_dict`, the table population in `app.py._populate_table`, and the exporter headers.
 - The four status buckets (`ok`, `problem`, `auth_failed`, `skipped`) are derived by `MainWindow._camera_status_key` from `skipped` / `auth_ok` / `issues` — there's no explicit status field on the dict. Don't add one; derive consistently.
 - Translation keys are required for any user-facing string; add to both `sk` and `en` blocks in `dahuawin/translations.py`. Exporter headers are a separate table inside `ResultExporter`.
+- Never read `config.EXPECTED_NTP_*`, `config.EXPECTED_DST`, or `config.MAX_TIME_DIFF_SECONDS` directly from runtime code — always go through `settings_store`. Direct config reads would bypass the user's UI overrides.

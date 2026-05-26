@@ -7,7 +7,7 @@ import urllib3
 from requests.auth import HTTPDigestAuth
 
 from dahuawin.camera_modules.base_camera import BaseCamera
-import dahuawin.config as config
+from dahuawin import settings_store
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -96,14 +96,17 @@ class HikvisionCamera(BaseCamera):
         return False
 
     def _check_ntp_settings(self):
+        expected_addresses = settings_store.expected_ntp_addresses()
+        expected_port = settings_store.expected_ntp_port()
+
         actual_addr = self.ntp_settings.get("Address", "")
-        if actual_addr.lower() not in [addr.lower() for addr in config.EXPECTED_NTP_ADDRESSES]:
+        if actual_addr.lower() not in [addr.lower() for addr in expected_addresses]:
             self.ntp_issues.append(
-                f"NTP.Address: '{actual_addr}' (ocakava sa '{config.EXPECTED_NTP_ADDRESSES[0]}')"
+                f"NTP.Address: '{actual_addr}' (ocakava sa '{expected_addresses[0]}')"
             )
         actual_port = self.ntp_settings.get("Port", "")
-        if actual_port != config.EXPECTED_NTP_PORT:
-            self.ntp_issues.append(f"NTP.Port: '{actual_port}' (ocakava sa '{config.EXPECTED_NTP_PORT}')")
+        if actual_port != expected_port:
+            self.ntp_issues.append(f"NTP.Port: '{actual_port}' (ocakava sa '{expected_port}')")
 
     def get_dst_settings(self) -> bool:
         try:
@@ -170,14 +173,18 @@ class HikvisionCamera(BaseCamera):
             self.dst_settings["DSTEnd.Hour"] = end.group(4).lstrip("0") or "0"
 
     def _check_dst_settings(self):
-        for key, expected in config.EXPECTED_DST.items():
+        for key, expected in settings_store.expected_dst().items():
             actual = self.dst_settings.get(key, "")
             if actual.lower() != expected.lower():
                 self.dst_issues.append(f"DST.{key}: '{actual}' (ocakava sa '{expected}')")
 
-    def set_ntp_settings(self, address: str = None, port: str = "123", enable: bool = True) -> bool:
+    def set_ntp_settings(self, address: str = None, port: str = None, enable: bool = None) -> bool:
         if address is None:
-            address = config.EXPECTED_NTP_ADDRESSES[0]
+            address = settings_store.expected_ntp_addresses()[0]
+        if port is None:
+            port = settings_store.expected_ntp_port()
+        if enable is None:
+            enable = settings_store.expected_ntp_enable()
 
         xml_data = f"""<?xml version="1.0" encoding="UTF-8"?>
 <NTPServerList>
@@ -205,23 +212,25 @@ class HikvisionCamera(BaseCamera):
             return False
 
     def set_dst_settings(self) -> bool:
-        xml_data = """<?xml version="1.0" encoding="UTF-8"?>
+        dst = settings_store.expected_dst()
+        enabled = "true" if dst.get("DSTEnable", "true").lower() in ("1", "true") else "false"
+        xml_data = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Time>
     <timeMode>NTP</timeMode>
     <localTime>
         <timeZone>CST-1:00:00</timeZone>
         <daylightSavingTime>
-            <enabled>true</enabled>
+            <enabled>{enabled}</enabled>
             <dstType>manual</dstType>
             <manualDst>
-                <startMonth>3</startMonth>
-                <startWeek>-1</startWeek>
-                <startWeekDay>0</startWeekDay>
-                <startHour>2</startHour>
-                <endMonth>10</endMonth>
-                <endWeek>-1</endWeek>
-                <endWeekDay>0</endWeekDay>
-                <endHour>3</endHour>
+                <startMonth>{dst.get('DSTStart.Month', '3')}</startMonth>
+                <startWeek>{dst.get('DSTStart.Week', '-1')}</startWeek>
+                <startWeekDay>{dst.get('DSTStart.Day', '0')}</startWeekDay>
+                <startHour>{dst.get('DSTStart.Hour', '2')}</startHour>
+                <endMonth>{dst.get('DSTEnd.Month', '10')}</endMonth>
+                <endWeek>{dst.get('DSTEnd.Week', '-1')}</endWeek>
+                <endWeekDay>{dst.get('DSTEnd.Day', '0')}</endWeekDay>
+                <endHour>{dst.get('DSTEnd.Hour', '3')}</endHour>
                 <offset>60</offset>
             </manualDst>
         </daylightSavingTime>
