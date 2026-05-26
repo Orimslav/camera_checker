@@ -2,6 +2,7 @@ import concurrent.futures
 from typing import Dict, List
 
 import dahuawin.config as config
+from dahuawin import settings_store
 from dahuawin.camera_modules.dahua_camera import DahuaCamera
 from dahuawin.camera_modules.device_detector import DeviceDetector
 from dahuawin.camera_modules.hikvision_camera import HikvisionCamera
@@ -113,7 +114,7 @@ class CameraChecker:
         verification = {
             "ntp_ok": len(camera.ntp_issues) == 0,
             "dst_ok": len(camera.dst_issues) == 0,
-            "time_ok": abs(camera.time_diff) < config.MAX_TIME_DIFF_SECONDS if camera.time_diff is not None else False,
+            "time_ok": abs(camera.time_diff) < settings_store.max_time_diff_seconds() if camera.time_diff is not None else False,
         }
         return {
             "success": all(change["success"] for change in changes) if changes else True,

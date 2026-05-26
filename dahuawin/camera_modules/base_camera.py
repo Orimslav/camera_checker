@@ -76,7 +76,9 @@ class BaseCamera(ABC):
         self.get_dst_settings()
 
         self.issues = self.ntp_issues + self.dst_issues
-        if self.time_diff and abs(self.time_diff) > 60:
+        from dahuawin import settings_store
+
+        if self.time_diff and abs(self.time_diff) > settings_store.max_time_diff_seconds():
             self.issues.insert(0, f"Casova odchylka: {self.time_diff:+.0f}s")
 
         return self.to_dict()

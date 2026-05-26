@@ -29,6 +29,7 @@ from dahuawin.services.camera_checker import CameraChecker
 from dahuawin.services.csv_loader import CSVLoader
 from dahuawin.services.demo_checker import DemoCameraChecker
 from dahuawin.services.result_exporter import ResultExporter
+from dahuawin.settings_dialog import SettingsDialog
 from dahuawin.translations import TRANSLATIONS
 
 
@@ -342,6 +343,8 @@ class MainWindow(QMainWindow):
         self.export_excel_button = QPushButton("")
         self.export_excel_button.clicked.connect(self.export_results_excel)
         self.export_excel_button.setEnabled(False)
+        self.settings_button = QPushButton("")
+        self.settings_button.clicked.connect(self.open_settings)
         self.theme_button = QPushButton("")
         self.theme_button.clicked.connect(self.toggle_theme)
         self.sk_button = QPushButton("")
@@ -364,6 +367,7 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.recheck_button)
         toolbar.addWidget(self.export_csv_button)
         toolbar.addWidget(self.export_excel_button)
+        toolbar.addWidget(self.settings_button)
         toolbar.addStretch()
         toolbar.addWidget(self.sk_button)
         toolbar.addWidget(self.en_button)
@@ -518,6 +522,7 @@ class MainWindow(QMainWindow):
         self.recheck_button.setText(self.tr("recheck"))
         self.export_csv_button.setText(self.tr("export_csv"))
         self.export_excel_button.setText(self.tr("export_excel"))
+        self.settings_button.setText(self.tr("settings_button"))
         self.theme_button.setText(self.tr("theme_light") if self.dark_mode else self.tr("theme_dark"))
         self.sk_button.setToolTip(self.tr("flag_sk_tooltip"))
         self.en_button.setToolTip(self.tr("flag_en_tooltip"))
@@ -622,6 +627,10 @@ class MainWindow(QMainWindow):
         self._update_stats({})
         self._update_export_buttons()
         self.details.clear()
+
+    def open_settings(self):
+        dialog = SettingsDialog(self, translator=self.tr)
+        dialog.exec()
 
     def save_sample_csv(self):
         path, _ = QFileDialog.getSaveFileName(
