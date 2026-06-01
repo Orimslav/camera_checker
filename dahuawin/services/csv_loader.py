@@ -10,7 +10,7 @@ class CSVLoader:
     def load_cameras(self) -> List[Dict]:
         cameras = []
 
-        with open(self.csv_file, "r", encoding="utf-8") as handle:
+        with open(self.csv_file, "r", encoding="utf-8-sig") as handle:
             reader = csv.DictReader(handle)
             for row in reader:
                 ip = self._extract_ip(row.get("Web Site", "") or "")
