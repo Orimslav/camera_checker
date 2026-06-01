@@ -85,8 +85,26 @@ Rows missing IP, username or password are silently skipped.
 | **NTP settings** | Server address, port, enabled flag — compared to reference values (editable in the UI Settings dialog) |
 | **DST settings** | Start/end month, week, day, hour — compared to EU schedule (editable in the UI Settings dialog) |
 
-Switches, servers and manually skipped IPs (`config.SKIP_IPS`) appear in the table as
-**skipped** so you keep visibility without burning network calls on them.
+### Vendor detection and skipping
+
+When a row is loaded, the app picks how to handle it based on the **`Comments`** (model)
+and **`Account`** (name) columns of the CSV, matched case-insensitively against keyword
+lists in `dahuawin/config.py`:
+
+| Bucket | Keywords (config.py) | Behavior |
+|--------|----------------------|----------|
+| Hikvision | `HIKVISION_KEYWORDS` — `DS-`, `HIKVISION` | Hikvision ISAPI handler |
+| Switch | `SWITCH_KEYWORDS` — `SWITCH`, `POE SWITCH`, `DGS-`, `PORTS POE` | **Skipped** — no network calls, shown in the table as "skipped" with reason `Switch` |
+| Server | `SERVER_KEYWORDS` — `SERVER` | **Skipped** — shown as "skipped" with reason `Server` |
+| Dahua | `DAHUA_PREFIXES` — `DH-`, `DHI-`, `IPC-`, `NVR`, `DVR`, `XVR`, `HCVR`, `VTO`, `VTH` | Dahua CGI handler |
+| Unknown | none of the above (empty model also lands here) | Falls back to Dahua handler |
+
+A practical consequence: to skip an individual device without editing `config.py`, just
+write `SWITCH` or `SERVER` into its `Comments` column in the CSV — matching runs over
+the combined `model + name` string.
+
+Manual per-IP exclusion still goes through `config.SKIP_IPS` (no keyword needed).
+Skipped devices stay visible in the results table so you don't lose track of them.
 
 ### Configuration
 
@@ -191,8 +209,26 @@ Riadky bez IP, mena alebo hesla sa ticho preskočia.
 | **NTP nastavenia** | Adresa servera, port, enable flag — porovnané s referenčnými hodnotami (editovateľné v dialógu Nastavenia) |
 | **DST nastavenia** | Začiatok/koniec — mesiac, týždeň, deň, hodina — porovnané s EU rozvrhom (editovateľné v dialógu Nastavenia) |
 
-Switche, servery a manuálne preskočené IP (`config.SKIP_IPS`) sa zobrazia v tabuľke ako
-**preskočené** — máš o nich prehľad ale neminieš na ne sieťové volanie.
+### Detekcia výrobcu a preskakovanie
+
+Pri načítaní riadku appka rozhodne ako ho spracovať podľa stĺpcov **`Comments`** (model)
+a **`Account`** (názov) z CSV — porovnáva ich case-insensitive so zoznamami kľúčových
+slov v `dahuawin/config.py`:
+
+| Bucket | Kľúčové slová (config.py) | Správanie |
+|--------|---------------------------|-----------|
+| Hikvision | `HIKVISION_KEYWORDS` — `DS-`, `HIKVISION` | Hikvision ISAPI handler |
+| Switch | `SWITCH_KEYWORDS` — `SWITCH`, `POE SWITCH`, `DGS-`, `PORTS POE` | **Preskočené** — žiadne sieťové volania, v tabuľke ako „preskočené" s dôvodom `Switch` |
+| Server | `SERVER_KEYWORDS` — `SERVER` | **Preskočené** — v tabuľke ako „preskočené" s dôvodom `Server` |
+| Dahua | `DAHUA_PREFIXES` — `DH-`, `DHI-`, `IPC-`, `NVR`, `DVR`, `XVR`, `HCVR`, `VTO`, `VTH` | Dahua CGI handler |
+| Unknown | nič z toho (prázdny model sem tiež padá) | Fallback na Dahua handler |
+
+Praktický dôsledok: ak chceš preskočiť konkrétne zariadenie bez zásahu do `config.py`,
+stačí do jeho `Comments` stĺpca v CSV napísať `SWITCH` alebo `SERVER` — porovnávanie
+beží nad spojeným reťazcom `model + name`.
+
+Manuálne preskočenie podľa IP stále funguje cez `config.SKIP_IPS` (bez potreby keywordu).
+Preskočené zariadenia ostávajú viditeľné v tabuľke, aby si o nich nestratil prehľad.
 
 ### Konfigurácia
 
